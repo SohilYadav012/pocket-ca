@@ -1,0 +1,6 @@
+# Backend — Services
+# This directory contains business logic service classes.
+# Services are called by controllers and call Mongoose models.
+#
+# Naming convention: <resource>.service.js
+# Example: auth.service.js, transaction.service.js

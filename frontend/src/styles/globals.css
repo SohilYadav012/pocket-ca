@@ -1,0 +1,230 @@
+/**
+ * styles/globals.css — Global Stylesheet
+ * Pocket C.A. Frontend
+ *
+ * - Imports Tailwind CSS (v4 syntax)
+ * - Defines CSS custom properties (design tokens)
+ * - Sets base styles for html, body
+ * - Defines reusable utility classes used across components
+ */
+
+/* ─── Google Fonts ────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+/* ─── CSS Custom Properties (Design Tokens) ─────────────────────────────── */
+:root {
+  /* Brand Colors */
+  --color-primary:        #6366f1;   /* Indigo */
+  --color-primary-hover:  #4f46e5;
+  --color-primary-light:  #e0e7ff;
+
+  --color-secondary:      #8b5cf6;   /* Violet */
+  --color-accent:         #06b6d4;   /* Cyan */
+
+  /* Status Colors */
+  --color-success:        #10b981;   /* Emerald */
+  --color-warning:        #f59e0b;   /* Amber */
+  --color-danger:         #ef4444;   /* Red */
+  --color-info:           #3b82f6;   /* Blue */
+
+  /* Background */
+  --color-bg:             #0f0f1a;   /* Deep dark navy */
+  --color-bg-card:        #16162a;   /* Card surface */
+  --color-bg-hover:       #1e1e35;   /* Hover state */
+  --color-bg-border:      #2a2a45;   /* Subtle border */
+
+  /* Text */
+  --color-text-primary:   #f1f5f9;   /* Primary text */
+  --color-text-secondary: #94a3b8;   /* Muted text */
+  --color-text-muted:     #64748b;   /* Very muted text */
+
+  /* Spacing & Shape */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px rgba(99, 102, 241, 0.08);
+  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+
+  /* Transitions */
+  --transition-base: all 0.2s ease;
+  --transition-slow: all 0.35s ease;
+}
+
+/* ─── Base Reset & Typography ─────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Scrollbar Styling ────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ─── Selection ────────────────────────────────────────────────────────────── */
+::selection {
+  background-color: rgba(99, 102, 241, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* ─── Links ────────────────────────────────────────────────────────────────── */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: var(--transition-base);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* ─── Focus Styles (Accessibility) ───────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ─── Utility Classes ──────────────────────────────────────────────────────── */
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(22, 22, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-bg-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient border */
+.gradient-border {
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+
+/* Page container */
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  width: 100%;
+}
+
+/* Section spacing */
+.section-spacing {
+  padding: 2rem 0;
+}
+
+/* Status badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.badge-success { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.badge-danger  { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+.badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.badge-info    { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.badge-primary { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
+
+/* Skeleton loader */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.skeleton {
+  background: var(--color-bg-hover);
+  border-radius: var(--radius-md);
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+/* Fade-in animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Slide-in from left */
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-in {
+  animation: slide-in-left 0.25s ease-out forwards;
+}
+
+/* ─── Input Icon Padding Fixes (Tailwind v4 Compatibility) ─────────────── */
+input.pl-9, .pl-9 {
+  padding-left: 2.5rem !important;
+}
+input.pl-10, .pl-10 {
+  padding-left: 2.75rem !important;
+}
+input.pl-11, .pl-11 {
+  padding-left: 3rem !important;
+}

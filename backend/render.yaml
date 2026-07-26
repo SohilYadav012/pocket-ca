@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: pocket-ca-backend
+    env: node
+    region: singapore # or oregon, frankfurt, ohio
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false # Set manually in Render dashboard to Atlas URI
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false # Set manually in Render dashboard to Vercel URL

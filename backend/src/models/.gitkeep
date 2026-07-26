@@ -1,0 +1,6 @@
+# Backend — Models
+# This directory contains Mongoose schema definitions.
+# Each model maps to a MongoDB collection.
+#
+# Naming convention: <Resource>.model.js  (PascalCase)
+# Example: User.model.js, Transaction.model.js

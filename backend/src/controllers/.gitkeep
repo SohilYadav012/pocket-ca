@@ -1,0 +1,12 @@
+# Backend — Controllers
+# This directory contains Express request handlers (controllers).
+# Each controller corresponds to a route group.
+#
+# Naming convention: <resource>.controller.js
+# Example: auth.controller.js, transaction.controller.js
+#
+# Controllers should:
+#   - Extract data from req (body, params, query)
+#   - Call the appropriate service method
+#   - Return a formatted response using ApiResponse
+#   - NOT contain business logic (that lives in services/)

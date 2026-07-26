@@ -1,0 +1,3 @@
+# Backend — Validators
+# Joi validation schemas for request body/query validation.
+# Naming convention: <resource>.validator.js
