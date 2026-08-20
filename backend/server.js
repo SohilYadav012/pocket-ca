@@ -2,12 +2,11 @@
  * server.js — Entry Point
  * Pocket C.A. Backend
  *
- * Starts the HTTP server and connects to MongoDB.
+ * Starts the HTTP server.
  * All Express configuration lives in app.js.
  */
 
 const app = require('./app');
-const connectDB = require('./src/config/db');
 const { PORT, NODE_ENV } = require('./src/config/env');
 
 // ─── Graceful Shutdown Handler ────────────────────────────────────────────────
@@ -32,9 +31,6 @@ process.on('uncaughtException', (err) => {
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 const bootstrap = async () => {
-  // Connect to MongoDB
-  await connectDB();
-
   // Start HTTP server
   const server = app.listen(PORT, () => {
     console.log('');
