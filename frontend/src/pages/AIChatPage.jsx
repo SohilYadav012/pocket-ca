@@ -16,7 +16,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bot, Send, Sparkles, Trash2, User as UserIcon, RefreshCw, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { sendChatMessage } from '../services/aiService';
+import { sendChatMessage, streamChatMessage } from '../services/aiService';
 
 const SUGGESTED_PROMPTS = [
   { icon: '💰', text: 'How much did I spend this month?', label: 'Monthly Spending' },
@@ -61,42 +61,43 @@ const AIChatPage = () => {
     if (!customPrompt) setInput('');
     setLoading(true);
 
+    // Create a placeholder message for the AI response
+    const aiMsgId = Date.now() + 1;
+    setMessages((prev) => [
+      ...prev,
+      { id: aiMsgId, sender: 'ai', text: '', timestamp: new Date() }
+    ]);
+
     try {
-      // Format history for backend API (last 6 turns)
+      // Format history for backend API
       const historyPayload = messages.map((m) => ({
         sender: m.sender,
         text: m.text,
       }));
 
-      const res = await sendChatMessage(trimmed, historyPayload);
-      if (res && res.data && res.data.reply) {
-        const aiMsg = {
-          id: Date.now() + 1,
-          sender: 'ai',
-          text: res.data.reply,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
-      } else {
-        throw new Error('Received invalid response from AI assistant');
-      }
+      // Stream the response
+      await streamChatMessage(trimmed, historyPayload, (chunk) => {
+        setMessages((prev) => 
+          prev.map((msg) => 
+            msg.id === aiMsgId ? { ...msg, text: msg.text + chunk } : msg
+          )
+        );
+      });
     } catch (err) {
       console.error('[AI Chat Error]', err);
-      const errMsg =
-        err?.response?.data?.error?.message ||
-        err?.message ||
-        'Failed to connect to AI assistant. Please try again later.';
+      const errMsg = err?.message || 'Failed to connect to AI assistant.';
       toast.error(errMsg);
 
-      // Append an error notice in chat
-      const errorBubble = {
-        id: Date.now() + 1,
-        sender: 'ai',
-        text: `⚠️ **Notice**: I encountered an issue processing your request: *${errMsg}*. Please check your network or try asking another question.`,
-        isError: true,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorBubble]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 2,
+          sender: 'ai',
+          text: `⚠️ **Notice**: I encountered an issue processing your request: *${errMsg}*`,
+          isError: true,
+          timestamp: new Date(),
+        }
+      ]);
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);

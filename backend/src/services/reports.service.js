@@ -1,28 +1,53 @@
 /**
- * services/reports.service.js — Reports Service (MOCK)
+ * services/reports.service.js — Reports Service (MOCK with JSON Persistence)
  * Pocket C.A. Backend
  */
 
+const { readData } = require('./dataStore');
+
 const generateReport = async (userId, startDate, endDate, format) => {
+  const db = readData();
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  end.setUTCHours(23, 59, 59, 999);
+
+  const transactions = db.transactions.filter(t => {
+    if (t.user !== userId) return false;
+    const tDate = new Date(t.transactionDate);
+    return tDate >= start && tDate <= end;
+  });
+
+  // Sort chronological
+  transactions.sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate));
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+  const categoryBreakdown = {};
+
+  transactions.forEach((tx) => {
+    const amount = Number(tx.amount) || 0;
+    if (tx.type === 'Income') {
+      totalIncome += amount;
+    } else {
+      totalExpense += amount;
+      categoryBreakdown[tx.category] = (categoryBreakdown[tx.category] || 0) + amount;
+    }
+  });
+
   return {
     meta: {
-      generatedAt: new Date(),
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      recordCount: 1,
+      generatedAt: new Date().toISOString(),
+      startDate,
+      endDate,
+      recordCount: transactions.length,
     },
     summary: {
-      totalIncome: 120000,
-      totalExpense: 75000,
-      netSavings: 45000,
+      totalIncome,
+      totalExpense,
+      netSavings: totalIncome - totalExpense,
     },
-    categoryBreakdown: {
-      food: 5000,
-      housing: 12000,
-    },
-    transactions: [
-      { date: new Date().toISOString(), type: 'Expense', amount: 800, category: 'food' }
-    ],
+    categoryBreakdown,
+    transactions,
   };
 };
 

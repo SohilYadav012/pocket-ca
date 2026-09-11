@@ -1,79 +1,101 @@
 /**
- * services/dashboard.service.js — Dashboard & Financial Analytics Service (MOCK)
+ * services/dashboard.service.js — Dashboard & Financial Analytics Service (MOCK with JSON Persistence)
  * Pocket C.A. Backend
- *
- * Implements static mock data for dashboard metrics.
  */
+
+const { readData } = require('./dataStore');
 
 // ─── 1. Get Financial Summary ─────────────────────────────────────────────────
 const getSummary = async (userId) => {
+  const db = readData();
+  const userTxs = db.transactions.filter(t => t.user === userId);
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let highestExpense = null;
+  let highestIncome = null;
+
+  userTxs.forEach(t => {
+    const amount = Number(t.amount) || 0;
+    if (t.type === 'Income') {
+      totalIncome += amount;
+      if (!highestIncome || amount > highestIncome.amount) {
+        highestIncome = { amount, category: t.category, description: t.description };
+      }
+    } else {
+      totalExpense += amount;
+      if (!highestExpense || amount > highestExpense.amount) {
+        highestExpense = { amount, category: t.category, description: t.description };
+      }
+    }
+  });
+
+  const totalBalance = totalIncome - totalExpense;
+
   return {
-    totalBalance: 45000,
-    totalIncome: 120000,
-    totalExpense: 75000,
-    totalTransactions: 154,
-    currentMonthIncome: 35000,
-    currentMonthExpense: 21000,
-    highestExpense: { amount: 15000, category: 'electronics', description: 'MacBook Installment' },
-    highestIncome: { amount: 35000, category: 'salary', description: 'Freelance Design' }
+    totalBalance,
+    totalIncome,
+    totalExpense,
+    totalTransactions: userTxs.length,
+    currentMonthIncome: totalIncome, // Simplified for mock
+    currentMonthExpense: totalExpense, // Simplified for mock
+    highestExpense,
+    highestIncome
   };
 };
 
 // ─── 2. Get Monthly Trend ─────────────────────────────────────────────────────
 const getMonthlyTrend = async (userId) => {
-  return [
-    { year: 2026, month: 1, fullDate: 'Jan 2026', income: 25000, expense: 18000 },
-    { year: 2026, month: 2, fullDate: 'Feb 2026', income: 27000, expense: 19500 },
-    { year: 2026, month: 3, fullDate: 'Mar 2026', income: 26000, expense: 22000 },
-    { year: 2026, month: 4, fullDate: 'Apr 2026', income: 28000, expense: 21000 },
-    { year: 2026, month: 5, fullDate: 'May 2026', income: 32000, expense: 24000 },
-    { year: 2026, month: 6, fullDate: 'Jun 2026', income: 30000, expense: 25000 },
-    { year: 2026, month: 7, fullDate: 'Jul 2026', income: 35000, expense: 21000 },
-  ];
+  const db = readData();
+  const userTxs = db.transactions.filter(t => t.user === userId);
+  
+  // Aggregate by month-year
+  const trendMap = {};
+  userTxs.forEach(t => {
+    const d = new Date(t.transactionDate);
+    if (isNaN(d.getTime())) return;
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    if (!trendMap[key]) {
+      trendMap[key] = { year: d.getFullYear(), month: d.getMonth() + 1, fullDate: `${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`, income: 0, expense: 0 };
+    }
+    if (t.type === 'Income') trendMap[key].income += Number(t.amount);
+    else trendMap[key].expense += Number(t.amount);
+  });
+
+  return Object.values(trendMap).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
 };
 
 // ─── 3. Get Category Breakdown ────────────────────────────────────────────────
 const getCategoryBreakdown = async (userId) => {
-  return [
-    { category: 'housing', totalAmount: 12000, count: 1, percentage: 57.1 },
-    { category: 'food', totalAmount: 5000, count: 15, percentage: 23.8 },
-    { category: 'entertainment', totalAmount: 2500, count: 3, percentage: 11.9 },
-    { category: 'transportation', totalAmount: 1500, count: 4, percentage: 7.1 },
-  ];
+  const db = readData();
+  const expenseTxs = db.transactions.filter(t => t.user === userId && t.type === 'Expense');
+  
+  let totalExp = 0;
+  const catMap = {};
+  
+  expenseTxs.forEach(t => {
+    const amount = Number(t.amount) || 0;
+    totalExp += amount;
+    if (!catMap[t.category]) catMap[t.category] = { totalAmount: 0, count: 0 };
+    catMap[t.category].totalAmount += amount;
+    catMap[t.category].count += 1;
+  });
+
+  return Object.entries(catMap).map(([category, data]) => ({
+    category,
+    totalAmount: data.totalAmount,
+    count: data.count,
+    percentage: totalExp > 0 ? Number(((data.totalAmount / totalExp) * 100).toFixed(1)) : 0
+  })).sort((a, b) => b.totalAmount - a.totalAmount);
 };
 
 // ─── 4. Get Recent Transactions ───────────────────────────────────────────────
 const getRecentTransactions = async (userId, limit = 5) => {
-  const mockTx = [
-    {
-      _id: 'tx_1',
-      type: 'Expense',
-      amount: 800,
-      category: 'food',
-      description: 'Dinner at Pizza Hut',
-      transactionDate: new Date(),
-      paymentMethod: 'UPI'
-    },
-    {
-      _id: 'tx_2',
-      type: 'Income',
-      amount: 35000,
-      category: 'salary',
-      description: 'Freelance Design Project',
-      transactionDate: new Date(Date.now() - 86400000),
-      paymentMethod: 'Bank Transfer'
-    },
-    {
-      _id: 'tx_3',
-      type: 'Expense',
-      amount: 1500,
-      category: 'transportation',
-      description: 'Uber Ride',
-      transactionDate: new Date(Date.now() - 172800000),
-      paymentMethod: 'Credit Card'
-    },
-  ];
-  return mockTx.slice(0, limit);
+  const db = readData();
+  const userTxs = db.transactions.filter(t => t.user === userId);
+  // Sort by date descending
+  userTxs.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+  return userTxs.slice(0, limit);
 };
 
 module.exports = {

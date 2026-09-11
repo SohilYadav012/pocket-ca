@@ -1,114 +1,121 @@
 /**
- * services/ai.service.js — AI Integration Service (Ollama)
+ * services/ai.service.js — AI Integration Service (Gemini API)
  * Pocket C.A. Backend
  */
 
-// Use native fetch (Node 18+)
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = 'llama3'; // Standard fallback model
+const { readData } = require('./dataStore');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const generateFallbackAnalysis = (prompt, summary, categories, errorMsg = '') => {
-  return `### 💡 AI Financial Analysis (Fallback)
+// Ensure the API key is present
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.warn('[AI Service] WARNING: GEMINI_API_KEY is missing from environment variables.');
+}
 
-**Error connecting to Ollama API:** *${errorMsg}*
+const genAI = new GoogleGenerativeAI(apiKey || 'MISSING_API_KEY');
 
-> **Tip:** Make sure Ollama is installed and running on your computer, and that you have pulled at least one model (e.g., open a terminal and run \`ollama run llama3\`).
+// We return an AsyncGenerator so the controller can stream it via SSE.
+// This keeps this service perfectly modular!
+async function* generateFinancialResponseStream(userId, prompt, history = []) {
+  const db = readData();
+  const userTxs = db.transactions ? db.transactions.filter(t => t.user === userId) : [];
+  const userBudgets = db.budgets ? db.budgets.filter(b => b.user === userId) : [];
+  const userGoals = db.goals ? db.goals.filter(g => g.user === userId) : [];
 
-Here is a quick snapshot of your finances:
+  let totalIncome = 0;
+  let totalExpense = 0;
+  const categorySpending = {};
 
-* 💰 **Current Net Balance**: **₹${summary.totalBalance.toLocaleString()}**
-* 📥 **Total Earned**: ₹${summary.totalIncome.toLocaleString()}
-* 📤 **Total Spent**: ₹${summary.totalExpense.toLocaleString()}
-* 🔝 **Top Spending Area**: **${categories[0]?.category.toUpperCase() || 'N/A'}** (₹${categories[0]?.totalAmount.toLocaleString() || 0})
-
-You asked: *"**${prompt}**"*
-`;
-};
-
-// Auto-detect a local model to use, fallback to DEFAULT_MODEL
-const getAvailableModel = async () => {
-  try {
-    const res = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.models && data.models.length > 0) {
-        // Filter out embedding models (like all-minilm or nomic-embed)
-        const chatModels = data.models.filter(m => {
-          const isEmbeddingName = m.name.includes('embed') || m.name.includes('minilm');
-          const isEmbeddingOnly = m.capabilities && m.capabilities.length === 1 && m.capabilities[0] === 'embedding';
-          return !isEmbeddingName && !isEmbeddingOnly;
-        });
-        
-        if (chatModels.length > 0) {
-          return chatModels[0].name;
-        }
-        return data.models[0].name;
-      }
+  userTxs.forEach(t => {
+    const amt = Number(t.amount);
+    if (t.type === 'Income') {
+      totalIncome += amt;
+    } else {
+      totalExpense += amt;
+      categorySpending[t.category] = (categorySpending[t.category] || 0) + amt;
     }
-  } catch (err) {
-    // Ignore error, return default if API is completely down
-  }
-  return DEFAULT_MODEL;
-};
+  });
 
-const generateFinancialResponse = async (userId, prompt, history = []) => {
-  // Static mock context
-  const summary = { totalBalance: 45000, totalIncome: 120000, totalExpense: 75000 };
-  const categories = [{ category: 'housing', totalAmount: 12000, percentage: 57, count: 1 }, { category: 'food', totalAmount: 5000, percentage: 24, count: 15 }];
-  
+  const budgetsContext = userBudgets.map(b => {
+    const spent = categorySpending[b.category] || 0;
+    const limit = Number(b.monthlyLimit || b.limitAmount) || 0;
+    return `- ${b.category}: Limit ₹${limit}, Spent ₹${spent}, Remaining ₹${limit - spent}`;
+  }).join('\\n');
+
+  const goalsContext = userGoals.map(g => {
+    return `- ${g.name || g.title}: Target ₹${g.targetAmount}, Saved ₹${g.currentAmount || 0}`;
+  }).join('\\n');
+
+  const recentTxs = userTxs.slice(0, 15).map(t => {
+    const date = t.transactionDate ? t.transactionDate.split('T')[0] : t.createdAt.split('T')[0];
+    return `- ${date} | ${t.type} | ${t.category} | ₹${t.amount} | ${t.description || 'No desc'}`;
+  }).join('\\n');
+
   const systemPrompt = `You are "Pocket C.A.", a highly intelligent, empathetic, and professional AI Chartered Accountant.
-Your goal is to provide personalized financial advice based on the user's data.
-Current Context:
-- Net Balance: ₹${summary.totalBalance}
-- Income: ₹${summary.totalIncome}, Expense: ₹${summary.totalExpense}
-Please format your response in clean Markdown. Be concise and conversational.`;
+Your goal is to provide personalized financial advice based on the user's LIVE data provided below.
+
+### USER'S LIVE FINANCIAL DATA
+**Overall Summary:**
+- Net Balance: ₹${totalIncome - totalExpense}
+- Total Income: ₹${totalIncome}
+- Total Expense: ₹${totalExpense}
+
+**Category Spending (Expenses):**
+${Object.entries(categorySpending).map(([cat, amt]) => `- ${cat}: ₹${amt}`).join('\\n') || '- None'}
+
+**Active Budgets (Limits):**
+${budgetsContext || '- No budgets set'}
+
+**Savings Goals:**
+${goalsContext || '- No goals set'}
+
+**Recent Transactions (Last 15):**
+${recentTxs || '- No transactions yet'}
+
+Please answer the user's questions accurately using ONLY the data provided above. Do not make up financial numbers or ask the user to input them manually. Format your response in clean Markdown. Be concise and conversational.`;
 
   try {
-    const modelToUse = await getAvailableModel();
-    console.log(`[AI Service] Using Ollama model: ${modelToUse}`);
-    
-    // Format history for Ollama API
-    const ollamaMessages = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // Add conversation history
-    for (const msg of history) {
-      const role = (msg.sender === 'user' || msg.role === 'user') ? 'user' : 'assistant';
-      const content = msg.text || (msg.parts && msg.parts.length > 0 ? msg.parts[0].text : '');
-      
-      if (content) {
-        ollamaMessages.push({ role, content });
-      }
-    }
-
-    // Add the current prompt
-    ollamaMessages.push({ role: 'user', content: prompt });
-
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: ollamaMessages,
-        stream: false, // Wait for full response
-      })
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-3.5-flash',
+      systemInstruction: systemPrompt
     });
 
-    if (!response.ok) {
-      const errData = await response.text();
-      throw new Error(`Ollama API error: ${response.status} ${errData}`);
-    }
+    // Format history for Gemini SDK
+    // Gemini uses "user" and "model" as roles
+    const formattedHistory = history.map(msg => ({
+      role: (msg.sender === 'user' || msg.role === 'user') ? 'user' : 'model',
+      parts: [{ text: msg.text || '' }]
+    }));
 
-    const data = await response.json();
-    return data.message.content;
-    
+    const chat = model.startChat({
+      history: formattedHistory,
+    });
+
+    // Start streaming the response
+    const result = await chat.sendMessageStream(prompt);
+
+    for await (const chunk of result.stream) {
+      const chunkText = chunk.text();
+      if (chunkText) {
+        yield chunkText;
+      }
+    }
   } catch (error) {
-    console.error('[Ollama API Error]:', error.message);
-    return generateFallbackAnalysis(prompt, summary, categories, error.message);
+    console.error('[Gemini API Error]:', error.message);
+    yield `### 💡 Error\n\n**Cannot connect to Gemini API.**\nMake sure GEMINI_API_KEY is configured correctly.\n\n*Error details: ${error.message}*`;
   }
+}
+
+// Keep the non-streaming one just in case, but controller will use stream
+const generateFinancialResponse = async (userId, prompt, history = []) => {
+  let fullResponse = '';
+  for await (const chunk of generateFinancialResponseStream(userId, prompt, history)) {
+    fullResponse += chunk;
+  }
+  return fullResponse;
 };
 
 module.exports = {
+  generateFinancialResponseStream,
   generateFinancialResponse,
 };
